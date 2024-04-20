@@ -56,6 +56,8 @@ std::string handle_get_request(const std::string& url, const std::string& http_v
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
     } else if (http_version == "HTTP/1.1") {
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    } else if (http_version == "HTTP/1.1") {
+        curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
     } else {
         std::cerr << "Unsupported HTTP version: " << http_version << std::endl;
         curl_easy_cleanup(curl);
