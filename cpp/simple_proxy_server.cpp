@@ -10,8 +10,13 @@
 #include <tuple>
 #include <curl/curl.h>
 #include <ctime>
+#include <unordered_map>
 
 const int BUFFER_SIZE = 1024;
+
+// Define a cache to store cached responses
+std::unordered_map<std::string, std::string> cache;
+
 std::tuple<std::string, std::string, std::string, std::vector<std::string>> parse_http_request(const std::string& request_data) {
   std::string method, url, http_version;
   std::vector<std::string> headers;
@@ -38,6 +43,11 @@ size_t write_callback(char *ptr, size_t size, size_t nmemb, std::string *data) {
 }
 
 std::string handle_get_request(const std::string& url, const std::string& http_version) {
+    // Check if the URL is in the cache
+    if (cache.find(url) != cache.end()) {
+        std::cout << "Cache hit for " << url << std::endl;
+        return cache[url];
+    }
     // Initialize libcurl
     CURL *curl = curl_easy_init();
     if (!curl) {
@@ -74,6 +84,9 @@ std::string handle_get_request(const std::string& url, const std::string& http_v
     if (res != CURLE_OK) {
         std::cerr << "Failed to perform HTTP GET request: " << curl_easy_strerror(res) << std::endl;
     }
+
+    // Cache the response
+    cache[url] = response;
 
     // Clean up
     curl_easy_cleanup(curl);   
