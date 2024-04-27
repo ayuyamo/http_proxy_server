@@ -4,6 +4,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <cstdlib>
+#include <sys/wait.h>
 
 const int BUFFER_SIZE = 100000;
 
@@ -25,9 +27,6 @@ void send_request(int port) {
         std::cerr << "Error: Could not connect to server\n";
         close(client_socket);
         return;
-    } else {
-        // Get the IP address in string format
-        std::string ip_address = inet_ntoa(server_address.sin_addr);
     }
     
     // Send the GET request to the proxy server
@@ -53,13 +52,30 @@ void send_request(int port) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <port>\n";
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <port> <num_clients>\n";
         return 1;
     }
     
     int port = std::stoi(argv[1]);
-    send_request(port);
+    int num_clients = std::stoi(argv[2]);
+    
+    for (int i = 0; i < num_clients; ++i) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            // Child process
+            send_request(port);
+            exit(0);
+        } else if (pid < 0) {
+            // Error forking
+            std::cerr << "Error: Could not fork process\n";
+        }
+    }
+    
+    // Wait for all child processes to complete
+    for (int i = 0; i < num_clients; ++i) {
+        wait(NULL);
+    }
     
     return 0;
 }

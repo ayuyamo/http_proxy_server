@@ -11,29 +11,41 @@
 #include <curl/curl.h>
 #include <ctime>
 #include <unordered_map>
+#include <sys/wait.h>
 
 const int BUFFER_SIZE = 1024;
 
 // Define a cache to store cached responses
 std::unordered_map<std::string, std::string> cache;
+// Ensure that the server does not create more than 20 child processes to avoid overwhelming the server.
+constexpr int MAX_CHILDREN = 20;
 
 std::tuple<std::string, std::string, std::string, std::vector<std::string>> parse_http_request(const std::string& request_data) {
-  std::string method, url, http_version;
-  std::vector<std::string> headers;
+    std::string method, url, http_version;
+    std::vector<std::string> headers;
 
-  // Create a string stream to parse the request_data
-  std::istringstream ss(request_data);
+    // Create a string stream to parse the request_data
+    std::istringstream ss(request_data);
 
-  // Parse the request line (method, url, and HTTP version)
-  ss >> method >> url >> http_version;
+    // Parse the request line (method, url, and HTTP version)
+    ss >> method >> url >> http_version;
 
-  // Parse headers
-  std::string line;
-  while (std::getline(ss, line) && line != "\r") {
-      headers.push_back(line);
-  }
+    // Parse headers
+    std::string line;
+    while (std::getline(ss, line) && line != "\r") {
+        headers.push_back(line);
+    }
 
-  return std::make_tuple(method, url, http_version, headers);
+    // Print the parsed parameters
+    std::cout << "Method: " << method << std::endl;
+    std::cout << "URL: " << url << std::endl;
+    std::cout << "HTTP Version: " << http_version << std::endl;
+    std::cout << "Headers:" << std::endl;
+    for (const auto& header : headers) {
+        std::cout << header << std::endl;
+    }
+
+    return std::make_tuple(method, url, http_version, headers);
 }
 
 // Callback function to write response data to a string
@@ -42,10 +54,10 @@ size_t write_callback(char *ptr, size_t size, size_t nmemb, std::string *data) {
     return size * nmemb;
 }
 
-std::string handle_get_request(const std::string& url, const std::string& http_version) {
+std::string handle_client_request(const std::string& url, const std::string& http_version) {
     // Check if the URL is in the cache
     if (cache.find(url) != cache.end()) {
-        std::cout << "Cache hit for " << url << std::endl;
+        std::cout << "Cache hit for " << url << "!!!!!" << std::endl;
         return cache[url];
     }
     // Initialize libcurl
@@ -61,12 +73,15 @@ std::string handle_get_request(const std::string& url, const std::string& http_v
     // Include header information in the response
     curl_easy_setopt(curl, CURLOPT_HEADER, 1L);
 
+    // // Close the connection after its response is fully transmitted
+    // curl_easy_setopt(curl, CURLOPT_FORBID_REUSE, 1L);
+
     // Set HTTP version
     if (http_version == "HTTP/1.0") {
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
     } else if (http_version == "HTTP/1.1") {
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    } else if (http_version == "HTTP/1.1") {
+    } else if (http_version == "HTTP/2.0") {
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
     } else {
         std::cerr << "Unsupported HTTP version: " << http_version << std::endl;
@@ -100,18 +115,9 @@ void handle_request(int client_socket, int server_socket) {
     std::string request_data(buffer, bytes_received);
     auto[method, url, http_version, headers] = parse_http_request(request_data);
 
-    // Print the parsed parameters
-    std::cout << "Method: " << method << std::endl;
-    std::cout << "URL: " << url << std::endl;
-    std::cout << "HTTP Version: " << http_version << std::endl;
-    std::cout << "Headers:" << std::endl;
-    for (const auto& header : headers) {
-        std::cout << header << std::endl;
-    }
-
     // Process the request
     std::string response;
-    response = handle_get_request(url, http_version);
+    response = handle_client_request(url, http_version);
     send(client_socket, response.c_str(), response.size(), 0);
 }
 
@@ -127,10 +133,35 @@ void start_proxy_server(int port) {
 
   listen(server_fd, 5);
 
+  int num_children = 0;
   while(true) {
     socklen_t addr_len = sizeof(address);
     int client_fd = accept(server_fd, (struct sockaddr *)&address, &addr_len);
-    handle_request(client_fd, server_fd);
+    if (client_fd < 0) {
+        std::cerr << "Error accepting client connection" << std::endl;
+        continue;
+    }
+    // Spawn a new process to handle the client request
+    pid_t child_pid = fork();
+    if (child_pid < 0) {
+        std::cerr << "Error forking process" << std::endl;
+        close(client_fd);
+        continue;
+    } else if (child_pid == 0) {
+        // Child process
+        handle_request(client_fd, server_fd);
+    } else {
+        // Parent process
+        num_children++;
+        if (num_children >= MAX_CHILDREN) {
+            // Wait for any child process to exit before accepting new connections
+            wait(NULL);
+            num_children--;
+        }
+    }
+
+    
+    // handle_request(client_fd, server_fd);
   }
 }
 
