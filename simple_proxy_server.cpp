@@ -1,36 +1,10 @@
-#include <iostream>
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/socket.h>
-#include <stdlib.h> 
-#include <netinet/in.h>
-#include <string>
-#include <vector>
-#include <sstream>
-#include <tuple>
-#include <curl/curl.h>
-#include <ctime>
-#include <unordered_map>
-#include <sys/wait.h>
-#include <thread> // Include for multithreading
-#include <semaphore.h> // Include semaphore header
-#include <ctime>
-#include <vector>
-#include <mutex>
-#include <condition_variable>
-#include <queue>
+#include "simple_proxy_server.h"
 
-const int BUFFER_SIZE = 1024;
-
-// Define a cache to store cached responses
 std::unordered_map<std::string, std::string> cache;
-// Ensure that the server does not create more than 20 child processes to avoid overwhelming the server.
 const int MAX_CONCURRENT_REQUESTS = 20;
-constexpr int TIMEOUT_SECONDS = 300; // 5 minutes timeout
-
 bool server_running = true;
 int server_fd;
-sem_t max_connections; // Semaphore to limit concurrent connections
+sem_t max_connections;
 
 std::tuple<std::string, std::string, std::string, std::vector<std::string>> parse_http_request(const std::string& request_data) {
     std::string method, url, http_version;
