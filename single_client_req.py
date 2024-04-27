@@ -5,14 +5,14 @@ def send_request(port):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
     # Connect to the proxy server
-    client_socket.connect(('172.20.213.159', port))
+    client_socket.connect(('127.0.0.1', port))
     
     # Send the GET request to the proxy server
     request = "GET http://www.google.com/ HTTP/1.0\r\n\r\n"
     client_socket.sendall(request.encode())
     
     # Receive and print the response from the proxy server
-    response = client_socket.recv(10000)
+    response = client_socket.recv(100000)
     print(response.decode())
 
     # Close the socket

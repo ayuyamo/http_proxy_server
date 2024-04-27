@@ -36,3 +36,31 @@ Notes
     brew install curl
     ```
 - You can modify the code to add more features or improve functionality according to your requirements.
+
+## Testing Scripts
+- This Python script demonstrates how to send a simple HTTP GET request to an HTTP proxy server.
+- Run the script with the following commands:
+For single client:
+```
+python3 single_client_req.py <port>
+```
+
+For concurrent client:
+```
+python3 multiple_client_req.py <port>
+```
+Replace <port> with the port number where the HTTP proxy server is running.
+
+- Description:
+    - The script creates a TCP socket and connects to the specified proxy server on the given port.
+    - It sends an HTTP GET request to the proxy server for the Google homepage.
+    - Upon receiving the response from the proxy server, it prints the response to the console.
+    - Finally, it closes the socket connection.
+
+
+### Unit Test
+- This Python script contains unit tests to evaluate the functionality of a proxy server.
+- Navigate to the directory containing the script and run the following command:
+```
+python server_unit_test.py
+```
